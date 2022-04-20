@@ -6,14 +6,28 @@ from threading import Thread
 import socket
 from time import sleep, time
 
+try:
+    import pip
+    pip.main(['install', 'psutil'])
+    from psutil import virtual_memory
+    psutil_installed = True
+    del pip
+except:
+    psutil_installed = False
+    pass
+if system() == 'Windows':
+    call('cls', shell=True)
+else:
+    call('clear', shell=True)
+
 
 secret_key = b''
 FILES_CURRENTLY_SENDING = FILES_SENT = SIZE_SENT = SIZE_RECEIVED = FILES_QUEUED_UP = 0
 receiver_ip = ''
 reachable_port = None
-BUFFER_SIZE = 1024*10
+BUFFER_SIZE = 1024*1024
 FINISHED = False
-USER_DEFINED_LIMIT = 50
+USER_DEFINED_LIMIT = 500
 
 
 
@@ -37,6 +51,9 @@ while True:
             break
 remove('x')
 
+
+def debug_data(string):
+    pass
 
 
 def size_calculator(file_size_raw: int):
@@ -70,8 +87,8 @@ def find_reachable_port(ip: str, port: int, connection_type: str):
         if __receive_from_connection(connection) == b'pass':
             if not reachable_port:
                 reachable_port = port
-    except:
-        pass
+    except Exception as e:
+        debug_data('1'+repr(e))
 
 
 def __force_connect_to_receiver(ip, port, connection_type):
@@ -83,8 +100,8 @@ def __force_connect_to_receiver(ip, port, connection_type):
         try:
             connection.connect((ip, port))
             break
-        except:
-            pass
+        except Exception as e:
+            debug_data('2'+repr(e))
     return connection
 
 
@@ -135,7 +152,8 @@ def authenticate_with_receiver(full_path, filename):
             Thread(target=__send_individual_file, args=(connection, full_path, filename,)).start()
         else:
             authenticate_with_receiver(full_path, filename)
-    except:
+    except Exception as e:
+        debug_data('3'+repr(e))
         FILES_QUEUED_UP -= 1
         authenticate_with_receiver(full_path, filename)
 
@@ -149,6 +167,9 @@ def __send_individual_file(connection, full_path, filename):
         __send_to_connection(connection, path.join(relative_path, filename).replace('\\', '/').encode())
         with open(path.join(relative_path, filename), 'rb') as file:
             while True:
+                if psutil_installed:
+                    while virtual_memory()[1] <= 100*BUFFER_SIZE:
+                        sleep(1)
                 partial_file_data = file.read(BUFFER_SIZE)
                 if partial_file_data:
                     __send_file_data(connection, partial_file_data)
@@ -159,7 +180,8 @@ def __send_individual_file(connection, full_path, filename):
             FILES_SENT += 1
             FILES_CURRENTLY_SENDING -= 1
             connection.close()
-    except:
+    except Exception as e:
+        debug_data('4'+repr(e))
         authenticate_with_receiver(full_path, filename)
 
 
